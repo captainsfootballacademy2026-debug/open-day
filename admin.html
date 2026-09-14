@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAPTAINS — Pannello Iscrizioni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0A;
+    --paper:#FFFFFF;
+    --ink:#111111;
+    --muted:#7A7A7A;
+    --muted-2:#A8A8A8;
+    --gold:#D3A31E;
+    --line: rgba(255,255,255,0.14);
+    --danger:#B3402A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:#FFFFFF;
+    font-family:'Inter',system-ui,sans-serif;
+    line-height:1.5;
+  }
+  h1,h2,.display{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    letter-spacing:0.01em;
+    margin:0;
+  }
+  .wrap{max-width:900px;margin:0 auto;padding:24px 16px 80px;}
+
+  .top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:22px;
+  }
+  .top h1{font-size:26px; color:var(--gold);}
+  .top .venue{color:var(--muted-2); font-size:13px; margin-top:4px;}
+  .sheet-link{
+    font-size:13px;
+    color:var(--gold);
+    text-decoration:none;
+    border:1px solid var(--gold);
+    padding:8px 14px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+
+  .summary-row{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-bottom:22px;
+  }
+  .summary-card{
+    background:#141414;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px;
+    text-align:center;
+  }
+  .summary-card .num{
+    font-family:'Oswald',sans-serif;
+    font-size:26px;
+    color:var(--gold);
+  }
+  .summary-card .lbl{
+    font-size:11.5px;
+    color:var(--muted-2);
+    margin-top:4px;
+  }
+
+  .slots-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(140px,1fr));
+    gap:10px;
+    margin-bottom:26px;
+  }
+  .slot-card{
+    background:#141414;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:12px 14px;
+  }
+  .slot-card .time{
+    font-family:'Oswald',sans-serif;
+    font-size:14px;
+  }
+  .slot-card .count{
+    font-size:12px;
+    color:var(--muted-2);
+    margin-top:4px;
+  }
+  .slot-bar{
+    height:5px;
+    background:rgba(255,255,255,0.12);
+    border-radius:999px;
+    margin-top:8px;
+    overflow:hidden;
+  }
+  .slot-bar-fill{
+    height:100%;
+    background:var(--gold);
+    border-radius:999px;
+  }
+  .slot-card.full .slot-bar-fill{background:var(--danger);}
+  .slot-card.full .count{color:var(--danger);}
+
+  .controls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+  }
+  .controls input, .controls select{
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:#141414;
+    color:#fff;
+    font-size:13.5px;
+    font-family:inherit;
+  }
+  .controls input{flex:1; min-width:160px;}
+
+  .table-wrap{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:14px;
+    overflow:hidden;
+  }
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th, td{
+    padding:10px 12px;
+    text-align:left;
+    border-bottom:1px solid #EEEBE3;
+    white-space:nowrap;
+  }
+  th{
+    background:#F1EFEA;
+    font-family:'Oswald',sans-serif;
+    font-weight:500;
+    font-size:11.5px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  tr:last-child td{border-bottom:none;}
+  .table-scroll{overflow-x:auto;}
+  .empty-state{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--muted);
+  }
+  .badge{
+    display:inline-block;
+    padding:3px 8px;
+    border-radius:999px;
+    background:rgba(211,163,30,0.15);
+    color:#8a6b12;
+    font-size:11.5px;
+  }
+  .loading{color:var(--muted-2); font-size:14px; padding:20px 0;}
+  .count-line{color:var(--muted-2); font-size:12.5px; margin:0 0 10px;}
+  .del-btn{
+    background:transparent;
+    border:1px solid var(--danger);
+    color:var(--danger);
+    padding:5px 10px;
+    border-radius:999px;
+    font-size:12px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .del-btn:hover{background:rgba(179,64,42,0.08);}
+  .del-btn:disabled{opacity:0.5; cursor:progress;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div>
+      <h1>Pannello Iscrizioni</h1>
+      <div class="venue">CAPTAINS Football Academy — Open Day, 3 Ottobre 2026</div>
+    </div>
+    <a class="sheet-link" id="sheetLink" href="#" target="_blank" rel="noopener">Apri il foglio Google completo</a>
+  </div>
+
+  <div id="content">
+    <div class="loading">Caricamento dati in corso...</div>
+  </div>
+
+</div>
+
+<script>
+var API_URL = 'https://script.google.com/macros/s/AKfycbxTG4wkT8FJRXJ-FohLL6ytVl-yELSmDCNJybUgDeYs5rYoGGR2WfrGKqKUXnnI11ZW/exec';
+var ADMIN_KEY = new URLSearchParams(window.location.search).get('admin') || '';
+var allRows = [];
+
+function esc(v){
+  if(v === null || v === undefined) return '';
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderAdmin(data){
+  document.getElementById('sheetLink').href = data.sheetUrl;
+
+  var html = '';
+
+  html += '<div class="summary-row">';
+  html += '<div class="summary-card"><div class="num">' + data.totalRegistered + '</div><div class="lbl">Iscritti totali</div></div>';
+  html += '<div class="summary-card"><div class="num">' + data.totalCapacity + '</div><div class="lbl">Posti totali</div></div>';
+  html += '<div class="summary-card"><div class="num">' + Math.max(0, data.totalCapacity - data.totalRegistered) + '</div><div class="lbl">Posti liberi</div></div>';
+  html += '</div>';
+
+  html += '<div class="slots-grid">';
+  data.slots.forEach(function(s){
+    var pct = Math.min(100, Math.round(s.taken / s.capacity * 100));
+    var full = s.taken >= s.capacity;
+    html += '<div class="slot-card' + (full ? ' full' : '') + '">';
+    html += '<div class="time">' + esc(s.slot) + '</div>';
+    html += '<div class="count">' + s.taken + ' / ' + s.capacity + (full ? ' · Esaurito' : '') + '</div>';
+    html += '<div class="slot-bar"><div class="slot-bar-fill" style="width:' + pct + '%"></div></div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  html += '<div class="controls">';
+  html += '<input type="text" id="searchBox" placeholder="Cerca per nome, cognome o email...">';
+  html += '<select id="slotFilter"><option value="">Tutte le fasce</option>';
+  data.slots.forEach(function(s){ html += '<option value="' + esc(s.slot) + '">' + esc(s.slot) + '</option>'; });
+  html += '</select>';
+  html += '</div>';
+
+  html += '<p class="count-line" id="countLine"></p>';
+  html += '<div class="table-wrap"><div class="table-scroll" id="tableHolder"></div></div>';
+
+  document.getElementById('content').innerHTML = html;
+
+  allRows = data.rows;
+  document.getElementById('searchBox').addEventListener('input', drawTable);
+  document.getElementById('slotFilter').addEventListener('change', drawTable);
+  drawTable();
+}
+
+function drawTable(){
+  var q = (document.getElementById('searchBox').value || '').toLowerCase();
+  var slotFilter = document.getElementById('slotFilter').value;
+
+  var filtered = allRows.filter(function(r){
+    var matchesSlot = !slotFilter || r['Fascia oraria'] === slotFilter;
+    var haystack = ((r['Nome']||'') + ' ' + (r['Cognome']||'') + ' ' + (r['Email']||'')).toLowerCase();
+    var matchesQuery = !q || haystack.indexOf(q) !== -1;
+    return matchesSlot && matchesQuery;
+  });
+
+  document.getElementById('countLine').textContent = filtered.length + ' iscrizion' + (filtered.length === 1 ? 'e' : 'i') + ' mostrat' + (filtered.length === 1 ? 'a' : 'e');
+
+  var holder = document.getElementById('tableHolder');
+  if(filtered.length === 0){
+    holder.innerHTML = '<div class="empty-state">Nessuna iscrizione trovata.</div>';
+    return;
+  }
+
+  var cols = ['Data invio','Nome','Cognome','Fascia oraria','Taglia maglia','Telefono','Email','Data di nascita','Ruolo prevalente','Comune di residenza','Foto e video','Comunicazioni CAPTAINS'];
+
+  var html = '<table><thead><tr>';
+  cols.forEach(function(c){ html += '<th>' + esc(c) + '</th>'; });
+  html += '<th>Azioni</th>';
+  html += '</tr></thead><tbody>';
+
+  filtered.forEach(function(r){
+    html += '<tr>';
+    cols.forEach(function(c){
+      if(c === 'Fascia oraria'){
+        html += '<td><span class="badge">' + esc(r[c]) + '</span></td>';
+      } else {
+        html += '<td>' + esc(r[c]) + '</td>';
+      }
+    });
+    html += '<td><button class="del-btn" data-row="' + r._row + '" data-name="' + esc((r['Nome']||'') + ' ' + (r['Cognome']||'')) + '">Elimina</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  holder.innerHTML = html;
+
+  holder.querySelectorAll('.del-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var row = btn.getAttribute('data-row');
+      var name = btn.getAttribute('data-name');
+      if(!confirm('Eliminare definitivamente l\'iscrizione di ' + name + '?\n\nQuesta azione non può essere annullata.')) return;
+
+      btn.disabled = true;
+      btn.textContent = '...';
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'delete', key: ADMIN_KEY, row: row })
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if(res.status === 'ok'){
+            loadAdminData();
+          } else {
+            alert('Errore durante l\'eliminazione: ' + (res.message || ''));
+            btn.disabled = false;
+            btn.textContent = 'Elimina';
+          }
+        })
+        .catch(function(err){
+          alert('Errore durante l\'eliminazione: ' + err);
+          btn.disabled = false;
+          btn.textContent = 'Elimina';
+        });
+    });
+  });
+}
+
+function loadAdminData(){
+  if(!ADMIN_KEY){
+    document.getElementById('content').innerHTML = '<div class="empty-state">Manca la chiave admin nell\'URL. Apri il link nel formato: questa-pagina.html?admin=LA-TUA-CHIAVE</div>';
+    return;
+  }
+  fetch(API_URL + '?action=admindata&admin=' + encodeURIComponent(ADMIN_KEY))
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data.error){
+        document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento: ' + esc(data.error) + '</div>';
+        return;
+      }
+      renderAdmin(data);
+    })
+    .catch(function(err){
+      document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento: ' + esc(err) + '</div>';
+    });
+}
+loadAdminData();
+</script>
+
+</body>
+</html>
