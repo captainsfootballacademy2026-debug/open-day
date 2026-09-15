@@ -901,9 +901,15 @@ document.getElementById('backBtn').addEventListener('click', function(){
   renderStep();
 });
 
+// URL della tua Web App Apps Script (quella con /exec alla fine).
+// Se in futuro rifai un deployment da zero (non una "nuova versione" di uno
+// esistente) l'URL potrebbe cambiare: in quel caso aggiornalo qui.
+var API_URL = 'https://script.google.com/macros/s/AKfycbxTG4wkT8FJRXJ-FohLL6ytVl-yELSmDCNJybUgDeYs5rYoGGR2WfrGKqKUXnnI11ZW/exec';
+
 function loadSlotAvailability(){
-  google.script.run
-    .withSuccessHandler(function(slots){
+  fetch(API_URL + '?action=slots')
+    .then(function(r){ return r.json(); })
+    .then(function(slots){
       slots.forEach(function(s){
         var option = document.querySelector('#fasciaOptions .option[data-slot="' + s.slot + '"]');
         if(!option) return;
@@ -919,10 +925,9 @@ function loadSlotAvailability(){
         }
       });
     })
-    .withFailureHandler(function(){
+    .catch(function(){
       document.querySelectorAll('#fasciaOptions .opt-status').forEach(function(el){ el.textContent = ''; });
-    })
-    .getSlotAvailability();
+    });
 }
 loadSlotAvailability();
 renderStep();
@@ -1007,8 +1012,13 @@ document.getElementById('openDayForm').addEventListener('submit', function(e){
   btn.disabled = true;
   btn.textContent = 'Invio in corso...';
 
-  google.script.run
-    .withSuccessHandler(function(res){
+  fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita il preflight CORS
+    body: JSON.stringify({ action: 'submit', data: data })
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(res){
       if(res.status === 'ok'){
         document.getElementById('overlay').classList.add('show');
       } else {
@@ -1018,12 +1028,11 @@ document.getElementById('openDayForm').addEventListener('submit', function(e){
         loadSlotAvailability();
       }
     })
-    .withFailureHandler(function(err){
+    .catch(function(){
       showError('Errore di connessione. Riprova.');
       btn.disabled = false;
       btn.textContent = 'Invia';
-    })
-    .submitForm(data);
+    });
 });
 </script>
 
