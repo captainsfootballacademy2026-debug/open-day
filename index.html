@@ -798,33 +798,14 @@ var currentStep = 1;
 var MIN_AGE = 6;
 var EVENT_DATE = new Date('2026-10-03');
 var DEADLINE = new Date('2026-09-30T23:59:59');
+var heroHasInitialized = false;
+
+// URL della tua Web App Apps Script (quella con /exec alla fine).
+// Se in futuro rifai un deployment da zero (non una "nuova versione" di uno
+// esistente) l'URL potrebbe cambiare: in quel caso aggiornalo qui.
+var API_URL = 'https://script.google.com/macros/s/AKfycbxTG4wkT8FJRXJ-FohLL6ytVl-yELSmDCNJybUgDeYs5rYoGGR2WfrGKqKUXnnI11ZW/exec';
 
 function pad2(n){ return n < 10 ? '0' + n : '' + n; }
-
-function updateCountdown(){
-  var now = new Date();
-  var diff = DEADLINE.getTime() - now.getTime();
-
-  if(diff <= 0){
-    document.getElementById('deadlineNotice').style.display = 'none';
-    document.getElementById('deadlineClosed').style.display = 'block';
-    document.getElementById('openDayForm').style.display = 'none';
-    if(window.countdownTimer) clearInterval(window.countdownTimer);
-    return;
-  }
-
-  var d = Math.floor(diff / (1000*60*60*24));
-  var h = Math.floor((diff / (1000*60*60)) % 24);
-  var m = Math.floor((diff / (1000*60)) % 60);
-  var s = Math.floor((diff / 1000) % 60);
-
-  document.getElementById('cdDays').textContent = d;
-  document.getElementById('cdHours').textContent = pad2(h);
-  document.getElementById('cdMin').textContent = pad2(m);
-  document.getElementById('cdSec').textContent = pad2(s);
-}
-updateCountdown();
-window.countdownTimer = setInterval(updateCountdown, 1000);
 
 function calculateAge(birthDateStr){
   var bd = new Date(birthDateStr);
@@ -846,8 +827,6 @@ function showError(msg){
 function clearError(){
   document.getElementById('errorMsg').style.display = 'none';
 }
-
-var heroHasInitialized = false;
 
 function renderStep(){
   document.querySelectorAll('.step').forEach(function(s){
@@ -891,6 +870,71 @@ function validateStep(step){
   return true;
 }
 
+/**
+ * Helper JSONP: comunica con Apps Script tramite un normale tag <script>
+ * invece che con fetch(). Questo evita del tutto i blocchi di sicurezza
+ * tra domini diversi (CORS) che alcuni browser applicano a fetch(),
+ * perché caricare uno <script> esterno non è mai soggetto a quel tipo
+ * di restrizione.
+ */
+function jsonp(url, onSuccess, onError){
+  var cbName = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+  var script = document.createElement('script');
+  var timeoutId;
+
+  function cleanup(){
+    clearTimeout(timeoutId);
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+  }
+
+  window[cbName] = function(data){
+    cleanup();
+    onSuccess(data);
+  };
+
+  script.src = url + (url.indexOf('?') > -1 ? '&' : '?') + 'callback=' + cbName;
+  script.onerror = function(){
+    cleanup();
+    if(onError) onError();
+  };
+  timeoutId = setTimeout(function(){
+    cleanup();
+    if(onError) onError();
+  }, 15000);
+
+  document.body.appendChild(script);
+}
+
+function loadSlotAvailability(){
+  jsonp(API_URL + '?action=slots', function(slots){
+    slots.forEach(function(s){
+      var option = document.querySelector('#fasciaOptions .option[data-slot="' + s.slot + '"]');
+      if(!option) return;
+      var statusEl = option.querySelector('.opt-status');
+      var input = option.querySelector('input');
+      if(s.full){
+        statusEl.textContent = 'Esaurito';
+        option.classList.add('is-full');
+        input.disabled = true;
+      } else {
+        statusEl.textContent = s.remaining + ' posti disponibili';
+        if(s.remaining <= 10){ statusEl.classList.add('low'); }
+      }
+    });
+  }, function(){
+    document.querySelectorAll('#fasciaOptions .opt-status').forEach(function(el){ el.textContent = ''; });
+  });
+}
+
+// ============================================================
+// PARTE CRITICA: da qui in poi, tutto ciò che serve per la
+// navigazione tra gli step e l'invio del form. Va eseguita per
+// prima e senza dipendere da nient'altro, così un eventuale
+// errore nelle parti decorative più sotto (countdown, carosello
+// foto) non può mai impedire l'invio della richiesta.
+// ============================================================
+
 document.getElementById('nextBtn').addEventListener('click', function(){
   if(!validateStep(currentStep)) return;
   currentStep = Math.min(TOTAL_STEPS, currentStep + 1);
@@ -900,72 +944,6 @@ document.getElementById('backBtn').addEventListener('click', function(){
   currentStep = Math.max(1, currentStep - 1);
   renderStep();
 });
-
-// URL della tua Web App Apps Script (quella con /exec alla fine).
-// Se in futuro rifai un deployment da zero (non una "nuova versione" di uno
-// esistente) l'URL potrebbe cambiare: in quel caso aggiornalo qui.
-var API_URL = 'https://script.google.com/macros/s/AKfycbxTG4wkT8FJRXJ-FohLL6ytVl-yELSmDCNJybUgDeYs5rYoGGR2WfrGKqKUXnnI11ZW/exec';
-
-function loadSlotAvailability(){
-  fetch(API_URL + '?action=slots')
-    .then(function(r){ return r.json(); })
-    .then(function(slots){
-      slots.forEach(function(s){
-        var option = document.querySelector('#fasciaOptions .option[data-slot="' + s.slot + '"]');
-        if(!option) return;
-        var statusEl = option.querySelector('.opt-status');
-        var input = option.querySelector('input');
-        if(s.full){
-          statusEl.textContent = 'Esaurito';
-          option.classList.add('is-full');
-          input.disabled = true;
-        } else {
-          statusEl.textContent = s.remaining + ' posti disponibili';
-          if(s.remaining <= 10){ statusEl.classList.add('low'); }
-        }
-      });
-    })
-    .catch(function(){
-      document.querySelectorAll('#fasciaOptions .opt-status').forEach(function(el){ el.textContent = ''; });
-    });
-}
-loadSlotAvailability();
-renderStep();
-
-// Carosello foto hero: swipe/scroll orizzontale + avanzamento automatico ogni 2 secondi
-(function(){
-  var heroPhoto = document.getElementById('heroPhoto');
-  var track = document.getElementById('heroTrack');
-  var trackDot = document.getElementById('heroTrackDot');
-  var names = ['Mirco Antenucci', 'Valerio Di Cesare', 'Raffaele Bianco'];
-  var lastIndex = 0;
-
-  function updateHeroProgress(){
-    if(!heroPhoto.clientWidth) return;
-
-    // Puntino: segue in modo continuo e fluido la posizione di scorrimento
-    var maxScroll = heroPhoto.scrollWidth - heroPhoto.clientWidth;
-    var frac = maxScroll > 0 ? heroPhoto.scrollLeft / maxScroll : 0;
-    frac = Math.max(0, Math.min(1, frac));
-    var travel = track.clientWidth - trackDot.clientWidth;
-    trackDot.style.left = (frac * travel) + 'px';
-
-    // Indice della foto corrente (per l'avanzamento automatico)
-    var idx = Math.round(heroPhoto.scrollLeft / heroPhoto.clientWidth);
-    lastIndex = Math.max(0, Math.min(names.length - 1, idx));
-  }
-
-  heroPhoto.addEventListener('scroll', function(){
-    requestAnimationFrame(updateHeroProgress);
-  }, { passive: true });
-
-  updateHeroProgress();
-
-  setInterval(function(){
-    var next = (lastIndex + 1) % names.length;
-    heroPhoto.scrollTo({ left: next * heroPhoto.clientWidth, behavior: 'smooth' });
-  }, 2000);
-})();
 
 document.getElementById('openDayForm').addEventListener('submit', function(e){
   e.preventDefault();
@@ -1012,28 +990,99 @@ document.getElementById('openDayForm').addEventListener('submit', function(e){
   btn.disabled = true;
   btn.textContent = 'Invio in corso...';
 
-  fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita il preflight CORS
-    body: JSON.stringify({ action: 'submit', data: data })
-  })
-    .then(function(r){ return r.json(); })
-    .then(function(res){
-      if(res.status === 'ok'){
-        document.getElementById('overlay').classList.add('show');
-      } else {
-        showError(res.message || 'Si è verificato un errore. Riprova.');
-        btn.disabled = false;
-        btn.textContent = 'Invia';
-        loadSlotAvailability();
-      }
-    })
-    .catch(function(){
-      showError('Errore di connessione. Riprova.');
+  var submitUrl = API_URL + '?action=submit&data=' + encodeURIComponent(JSON.stringify(data));
+  jsonp(submitUrl, function(res){
+    if(res.status === 'ok'){
+      document.getElementById('overlay').classList.add('show');
+    } else {
+      showError(res.message || 'Si è verificato un errore. Riprova.');
       btn.disabled = false;
       btn.textContent = 'Invia';
-    });
+      loadSlotAvailability();
+    }
+  }, function(){
+    showError('Errore di connessione. Riprova.');
+    btn.disabled = false;
+    btn.textContent = 'Invia';
+  });
 });
+
+loadSlotAvailability();
+renderStep();
+
+// ============================================================
+// PARTE DECORATIVA: countdown e carosello foto. Protette da
+// try/catch così, anche in caso di errore imprevisto, non
+// possono mai bloccare il resto della pagina (form incluso).
+// ============================================================
+
+try {
+  var updateCountdown = function(){
+    var now = new Date();
+    var diff = DEADLINE.getTime() - now.getTime();
+
+    if(diff <= 0){
+      var dn = document.getElementById('deadlineNotice');
+      var dc = document.getElementById('deadlineClosed');
+      if(dn) dn.style.display = 'none';
+      if(dc) dc.style.display = 'block';
+      if(window.countdownTimer) clearInterval(window.countdownTimer);
+      return;
+    }
+
+    var d = Math.floor(diff / (1000*60*60*24));
+    var h = Math.floor((diff / (1000*60*60)) % 24);
+    var m = Math.floor((diff / (1000*60)) % 60);
+    var s = Math.floor((diff / 1000) % 60);
+
+    document.getElementById('cdDays').textContent = d;
+    document.getElementById('cdHours').textContent = pad2(h);
+    document.getElementById('cdMin').textContent = pad2(m);
+    document.getElementById('cdSec').textContent = pad2(s);
+  };
+  updateCountdown();
+  window.countdownTimer = setInterval(updateCountdown, 1000);
+} catch(err) {
+  console.error('Countdown non disponibile:', err);
+}
+
+try {
+  // Carosello foto hero: swipe/scroll orizzontale + avanzamento automatico ogni 2 secondi
+  (function(){
+    var heroPhoto = document.getElementById('heroPhoto');
+    var track = document.getElementById('heroTrack');
+    var trackDot = document.getElementById('heroTrackDot');
+    if(!heroPhoto || !track || !trackDot) return;
+
+    var names = ['Mirco Antenucci', 'Valerio Di Cesare', 'Raffaele Bianco'];
+    var lastIndex = 0;
+
+    function updateHeroProgress(){
+      if(!heroPhoto.clientWidth) return;
+      var maxScroll = heroPhoto.scrollWidth - heroPhoto.clientWidth;
+      var frac = maxScroll > 0 ? heroPhoto.scrollLeft / maxScroll : 0;
+      frac = Math.max(0, Math.min(1, frac));
+      var travel = track.clientWidth - trackDot.clientWidth;
+      trackDot.style.left = (frac * travel) + 'px';
+
+      var idx = Math.round(heroPhoto.scrollLeft / heroPhoto.clientWidth);
+      lastIndex = Math.max(0, Math.min(names.length - 1, idx));
+    }
+
+    heroPhoto.addEventListener('scroll', function(){
+      requestAnimationFrame(updateHeroProgress);
+    }, { passive: true });
+
+    updateHeroProgress();
+
+    setInterval(function(){
+      var next = (lastIndex + 1) % names.length;
+      heroPhoto.scrollTo({ left: next * heroPhoto.clientWidth, behavior: 'smooth' });
+    }, 2000);
+  })();
+} catch(err) {
+  console.error('Carosello foto non disponibile:', err);
+}
 </script>
 
 </body>
