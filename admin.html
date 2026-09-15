@@ -301,28 +301,56 @@ function drawTable(){
       btn.disabled = true;
       btn.textContent = '...';
 
-      fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'delete', key: ADMIN_KEY, row: row })
-      })
-        .then(function(r){ return r.json(); })
-        .then(function(res){
-          if(res.status === 'ok'){
-            loadAdminData();
-          } else {
-            alert('Errore durante l\'eliminazione: ' + (res.message || ''));
-            btn.disabled = false;
-            btn.textContent = 'Elimina';
-          }
-        })
-        .catch(function(err){
-          alert('Errore durante l\'eliminazione: ' + err);
+      var deleteUrl = API_URL + '?action=delete&key=' + encodeURIComponent(ADMIN_KEY) + '&row=' + encodeURIComponent(row);
+      jsonp(deleteUrl, function(res){
+        if(res.status === 'ok'){
+          loadAdminData();
+        } else {
+          alert('Errore durante l\'eliminazione: ' + (res.message || ''));
           btn.disabled = false;
           btn.textContent = 'Elimina';
-        });
+        }
+      }, function(){
+        alert('Errore di connessione durante l\'eliminazione.');
+        btn.disabled = false;
+        btn.textContent = 'Elimina';
+      });
     });
   });
+}
+
+/**
+ * Helper JSONP: comunica con Apps Script tramite un normale tag <script>
+ * invece che con fetch(), evitando del tutto i blocchi CORS tra domini
+ * diversi che alcuni browser applicano a fetch().
+ */
+function jsonp(url, onSuccess, onError){
+  var cbName = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+  var script = document.createElement('script');
+  var timeoutId;
+
+  function cleanup(){
+    clearTimeout(timeoutId);
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+  }
+
+  window[cbName] = function(data){
+    cleanup();
+    onSuccess(data);
+  };
+
+  script.src = url + (url.indexOf('?') > -1 ? '&' : '?') + 'callback=' + cbName;
+  script.onerror = function(){
+    cleanup();
+    if(onError) onError();
+  };
+  timeoutId = setTimeout(function(){
+    cleanup();
+    if(onError) onError();
+  }, 15000);
+
+  document.body.appendChild(script);
 }
 
 function loadAdminData(){
@@ -330,18 +358,15 @@ function loadAdminData(){
     document.getElementById('content').innerHTML = '<div class="empty-state">Manca la chiave admin nell\'URL. Apri il link nel formato: questa-pagina.html?admin=LA-TUA-CHIAVE</div>';
     return;
   }
-  fetch(API_URL + '?action=admindata&admin=' + encodeURIComponent(ADMIN_KEY))
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if(data.error){
-        document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento: ' + esc(data.error) + '</div>';
-        return;
-      }
-      renderAdmin(data);
-    })
-    .catch(function(err){
-      document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento: ' + esc(err) + '</div>';
-    });
+  jsonp(API_URL + '?action=admindata&admin=' + encodeURIComponent(ADMIN_KEY), function(data){
+    if(data.error){
+      document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento: ' + esc(data.error) + '</div>';
+      return;
+    }
+    renderAdmin(data);
+  }, function(){
+    document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento. Riprova.</div>';
+  });
 }
 loadAdminData();
 </script>
