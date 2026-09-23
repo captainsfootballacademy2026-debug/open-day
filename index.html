@@ -606,15 +606,15 @@
 
           <div class="field">
             <label class="q req">Nome</label>
-            <input type="text" id="nome">
+            <input type="text" id="nome" maxlength="60">
           </div>
           <div class="field">
             <label class="q req">Cognome</label>
-            <input type="text" id="cognome">
+            <input type="text" id="cognome" maxlength="60">
           </div>
           <div class="field">
             <label class="q req">Data di nascita</label>
-            <input type="date" id="dataNascita">
+            <input type="date" id="dataNascita" max="2026-10-03">
             <div class="hint">L'Open Day è riservato a partecipanti dai 6 anni in su</div>
           </div>
 
@@ -633,11 +633,11 @@
             <summary>Aggiungi altre informazioni (facoltative)</summary>
             <div class="field">
               <label class="q">Comune di residenza</label>
-              <input type="text" id="comune">
+              <input type="text" id="comune" maxlength="60">
             </div>
             <div class="field">
               <label class="q">Società sportiva attuale</label>
-              <input type="text" id="societa">
+              <input type="text" id="societa" maxlength="80">
             </div>
           </details>
         </div>
@@ -653,7 +653,6 @@
             <div class="options" id="fasciaOptions">
               <label class="option" data-slot="10:00 - 11:15"><input type="radio" name="fasciaOraria" value="10:00 - 11:15"><span class="opt-label">10:00 - 11:15</span><span class="opt-status">Caricamento...</span></label>
               <label class="option" data-slot="11:30 - 12:45"><input type="radio" name="fasciaOraria" value="11:30 - 12:45"><span class="opt-label">11:30 - 12:45</span><span class="opt-status">Caricamento...</span></label>
-              <label class="option" data-slot="13:00 - 14:15"><input type="radio" name="fasciaOraria" value="13:00 - 14:15"><span class="opt-label">13:00 - 14:15</span><span class="opt-status">Caricamento...</span></label>
               <label class="option" data-slot="15:30 - 16:45"><input type="radio" name="fasciaOraria" value="15:30 - 16:45"><span class="opt-label">15:30 - 16:45</span><span class="opt-status">Caricamento...</span></label>
               <label class="option" data-slot="17:00 - 18:15"><input type="radio" name="fasciaOraria" value="17:00 - 18:15"><span class="opt-label">17:00 - 18:15</span><span class="opt-status">Caricamento...</span></label>
               <label class="option" data-slot="18:30 - 19:45"><input type="radio" name="fasciaOraria" value="18:30 - 19:45"><span class="opt-label">18:30 - 19:45</span><span class="opt-status">Caricamento...</span></label>
@@ -696,15 +695,15 @@
           <div class="field">
             <label class="q">Nome e cognome del genitore/tutore</label>
             <div class="hint">Da compilare solo per i minorenni</div>
-            <input type="text" id="genitore">
+            <input type="text" id="genitore" maxlength="80">
           </div>
           <div class="field">
             <label class="q req">Numero di telefono</label>
-            <input type="tel" id="telefono">
+            <input type="tel" id="telefono" maxlength="20">
           </div>
           <div class="field">
             <label class="q req">Email</label>
-            <input type="email" id="email">
+            <input type="email" id="email" maxlength="100">
           </div>
         </div>
       </div>
@@ -796,8 +795,8 @@ var TOTAL_STEPS = 5;
 var STEP_NAMES = {1:'Atleta', 2:'Orario', 3:'Maglia', 4:'Contatti', 5:'Conferma'};
 var currentStep = 1;
 var MIN_AGE = 6;
-var EVENT_DATE = new Date('2026-10-03');
-var DEADLINE = new Date('2026-09-30T23:59:59');
+var EVENT_DATE = new Date('2026-10-03T00:00:00+02:00');
+var DEADLINE = new Date('2026-09-30T23:59:59+02:00');
 var heroHasInitialized = false;
 
 // URL della tua Web App Apps Script (quella con /exec alla fine).
@@ -901,7 +900,7 @@ function jsonp(url, onSuccess, onError){
   timeoutId = setTimeout(function(){
     cleanup();
     if(onError) onError();
-  }, 15000);
+  }, 20000);
 
   document.body.appendChild(script);
 }
