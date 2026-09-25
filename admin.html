@@ -129,6 +129,26 @@
     font-family:inherit;
   }
   .controls input{flex:1; min-width:160px;}
+  .action-btn{
+    padding:10px 16px;
+    border-radius:8px;
+    border:1px solid var(--gold);
+    background:rgba(211,163,30,0.1);
+    color:var(--gold);
+    font-size:13px;
+    font-family:'Oswald',sans-serif;
+    letter-spacing:0.02em;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .action-btn:hover{background:rgba(211,163,30,0.2);}
+  .action-btn:disabled{opacity:0.5; cursor:progress;}
+  .email-btn{
+    border-color:#4A90D9;
+    background:rgba(74,144,217,0.1);
+    color:#7AB0E8;
+  }
+  .email-btn:hover{background:rgba(74,144,217,0.2);}
 
   .table-wrap{
     background:var(--paper);
@@ -158,6 +178,18 @@
     padding:40px 20px;
     text-align:center;
     color:var(--muted);
+  }
+  .retry-btn{
+    background:var(--gold);
+    color:#0A0A0A;
+    border:none;
+    padding:10px 22px;
+    border-radius:999px;
+    font-family:'Oswald',sans-serif;
+    font-size:13.5px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    cursor:pointer;
   }
   .badge{
     display:inline-block;
@@ -207,7 +239,7 @@ var allRows = [];
 
 function esc(v){
   if(v === null || v === undefined) return '';
-  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function renderAdmin(data){
@@ -238,6 +270,8 @@ function renderAdmin(data){
   html += '<select id="slotFilter"><option value="">Tutte le fasce</option>';
   data.slots.forEach(function(s){ html += '<option value="' + esc(s.slot) + '">' + esc(s.slot) + '</option>'; });
   html += '</select>';
+  html += '<button id="downloadBtn" class="action-btn">⬇ Scarica lista (CSV)</button>';
+  html += '<button id="emailBtn" class="action-btn email-btn">📧 Invia email di conferma</button>';
   html += '</div>';
 
   html += '<p class="count-line" id="countLine"></p>';
@@ -248,19 +282,92 @@ function renderAdmin(data){
   allRows = data.rows;
   document.getElementById('searchBox').addEventListener('input', drawTable);
   document.getElementById('slotFilter').addEventListener('change', drawTable);
+  document.getElementById('downloadBtn').addEventListener('click', downloadCSV);
+  document.getElementById('emailBtn').addEventListener('click', sendConfirmationEmails);
   drawTable();
 }
 
-function drawTable(){
+/**
+ * Applica gli stessi filtri (fascia + ricerca) attivi nella tabella.
+ */
+function getFilteredRows(){
   var q = (document.getElementById('searchBox').value || '').toLowerCase();
   var slotFilter = document.getElementById('slotFilter').value;
-
-  var filtered = allRows.filter(function(r){
+  return allRows.filter(function(r){
     var matchesSlot = !slotFilter || r['Fascia oraria'] === slotFilter;
     var haystack = ((r['Nome']||'') + ' ' + (r['Cognome']||'') + ' ' + (r['Email']||'')).toLowerCase();
     var matchesQuery = !q || haystack.indexOf(q) !== -1;
     return matchesSlot && matchesQuery;
   });
+}
+
+/**
+ * Scarica un CSV (Nome, Cognome, Fascia, Ruolo, Taglia) dell'elenco
+ * attualmente filtrato (rispetta ricerca e fascia selezionata).
+ */
+function downloadCSV(){
+  var filtered = getFilteredRows();
+  if(filtered.length === 0){
+    alert('Nessuna iscrizione da scaricare con i filtri attuali.');
+    return;
+  }
+
+  var cols = ['Nome','Cognome','Fascia oraria','Ruolo prevalente','Taglia maglia'];
+  var lines = [cols.join(';')];
+  filtered.forEach(function(r){
+    lines.push(cols.map(function(c){
+      return (r[c] || '').toString().replace(/;/g, ',').replace(/[\r\n]+/g, ' ');
+    }).join(';'));
+  });
+
+  var csvContent = '\uFEFF' + lines.join('\r\n'); // BOM per far riconoscere gli accenti a Excel
+  var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var slotFilter = document.getElementById('slotFilter').value;
+  var slotLabel = slotFilter ? slotFilter.replace(/[^0-9]/g, '') : 'tutte-le-fasce';
+
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'iscrizioni_' + slotLabel + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Invia l'email di conferma a chi non l'ha ancora ricevuta, nella
+ * fascia attualmente selezionata (o a tutte, se non ne hai scelta una).
+ */
+function sendConfirmationEmails(){
+  var slotFilter = document.getElementById('slotFilter').value;
+  var target = slotFilter ? ('fascia ' + slotFilter) : 'TUTTE le fasce';
+
+  if(!confirm('Inviare l\'email di conferma a chi non l\'ha ancora ricevuta (' + target + ')?\n\nChi l\'ha già ricevuta non verrà ricontattato.')) return;
+
+  var btn = document.getElementById('emailBtn');
+  btn.disabled = true;
+  btn.textContent = 'Invio in corso...';
+
+  var url = API_URL + '?action=sendemails&admin=' + encodeURIComponent(ADMIN_KEY) + (slotFilter ? '&slot=' + encodeURIComponent(slotFilter) : '');
+  jsonp(url, function(res){
+    btn.disabled = false;
+    btn.textContent = '📧 Invia email di conferma';
+    if(res.status === 'error'){
+      alert('Errore: ' + res.message);
+      return;
+    }
+    alert('Email inviate: ' + res.sent + '\nGià inviate in precedenza: ' + res.alreadySent + (res.failed ? '\nNon riuscite: ' + res.failed : ''));
+    loadAdminData();
+  }, function(){
+    btn.disabled = false;
+    btn.textContent = '📧 Invia email di conferma';
+    alert('Errore di connessione. Riprova.');
+  });
+}
+
+function drawTable(){
+  var filtered = getFilteredRows();
 
   document.getElementById('countLine').textContent = filtered.length + ' iscrizion' + (filtered.length === 1 ? 'e' : 'i') + ' mostrat' + (filtered.length === 1 ? 'a' : 'e');
 
@@ -348,7 +455,7 @@ function jsonp(url, onSuccess, onError){
   timeoutId = setTimeout(function(){
     cleanup();
     if(onError) onError();
-  }, 15000);
+  }, 30000);
 
   document.body.appendChild(script);
 }
@@ -358,14 +465,15 @@ function loadAdminData(){
     document.getElementById('content').innerHTML = '<div class="empty-state">Manca la chiave admin nell\'URL. Apri il link nel formato: questa-pagina.html?admin=LA-TUA-CHIAVE</div>';
     return;
   }
+  document.getElementById('content').innerHTML = '<div class="loading">Caricamento dati in corso...</div>';
   jsonp(API_URL + '?action=admindata&admin=' + encodeURIComponent(ADMIN_KEY), function(data){
     if(data.error){
-      document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento: ' + esc(data.error) + '</div>';
+      document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento: ' + esc(data.error) + '<br><br><button class="retry-btn" onclick="loadAdminData()">Riprova</button></div>';
       return;
     }
     renderAdmin(data);
   }, function(){
-    document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento. Riprova.</div>';
+    document.getElementById('content').innerHTML = '<div class="empty-state">Errore nel caricamento (rete lenta o assente).<br><br><button class="retry-btn" onclick="loadAdminData()">Riprova</button></div>';
   });
 }
 loadAdminData();
